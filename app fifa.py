@@ -1,5 +1,5 @@
 import streamlit as st
-import pytesseract
+import easyocr
 import cv2
 import numpy as np
 from PIL import Image
@@ -8,14 +8,14 @@ import re
 st.set_page_config(page_title="AI Football Scout", page_icon="⚽")
 
 st.title("⚽ AI Football Scout")
-st.write("Scanează fișa → primești analiză completă ca un scout real.")
+st.write("Scanează fișa jucătorului.")
 
-# =========================================================
+# =====================================================
 # CAMERA / UPLOAD
-# =========================================================
+# =====================================================
 
-img_file = st.camera_input("Fă poză la fișă") or st.file_uploader(
-    "sau Upload", type=["jpg","png","jpeg"]
+img_file = st.camera_input("Fă poză") or st.file_uploader(
+    "Upload", type=["jpg","png","jpeg"]
 )
 
 if img_file:
@@ -25,19 +25,21 @@ if img_file:
 
     st.image(image, caption="Scan", use_column_width=True)
 
-    # =====================================================
-    # OCR
-    # =====================================================
+    # =================================================
+    # OCR EASYOCR
+    # =================================================
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(gray, None, fx=1.5, fy=1.5)
-    gray = cv2.GaussianBlur(gray, (5,5), 0)
+    reader = easyocr.Reader(['en','es'])
 
-    text = pytesseract.image_to_string(gray, lang="spa")
+    results = reader.readtext(img, detail=0)
+    text = " ".join(results)
 
-    # =====================================================
-    # EXTRAGERE DATE
-    # =====================================================
+    st.subheader("📄 Text detectat")
+    st.text(text)
+
+    # =================================================
+    # EXTRAGERE
+    # =================================================
 
     def extrage(pattern):
         match = re.search(pattern, text)
@@ -72,135 +74,39 @@ if img_file:
     st.subheader("📊 Stats")
     st.json(stats)
 
-    # =====================================================
-    # 🧠 AI SCOUT ENGINE
-    # =====================================================
+    # =================================================
+    # AI SCOUT
+    # =================================================
 
     analiza = []
 
-    # ---- WONDERKID CHECK ----
-    if potential_max and potential_max >= 88:
-        analiza.append("🌟 Elite Wonderkid")
-    elif potential_max and potential_max >= 85:
-        analiza.append("⭐ High Wonderkid")
+    if potential_max and potential_max >= 85:
+        analiza.append("🌟 Wonderkid")
     elif potential_max and potential_max >= 82:
-        analiza.append("🟡 Solid Prospect")
+        analiza.append("🟡 Prospect bun")
     else:
-        analiza.append("❌ Low Ceiling")
+        analiza.append("❌ Ceiling mic")
 
-    # ---- CEILING ESTIMATE ----
     if media and potential_max:
         growth = potential_max - media
+        analiza.append(f"📈 Growth potential: +{growth}")
 
-        if growth >= 12:
-            ceiling = "Explozie mare de creștere"
-        elif growth >= 8:
-            ceiling = "Creștere bună"
-        else:
-            ceiling = "Creștere limitată"
+    role = "Rotation"
 
-        analiza.append(f"📈 Ceiling: {ceiling}")
+    if regates and ritmo and regates >= 78 and ritmo >= 78:
+        role = "Winger"
+    elif pases and pases >= 78:
+        role = "Playmaker"
 
-    # =====================================================
-    # ROLE DETECTION
-    # =====================================================
+    analiza.append(f"🎯 Rol: {role}")
 
-    role = "Necunoscut"
+    tiki = "❌"
+    if pases and regates and (pases + regates)/2 >= 75:
+        tiki = "🔵🔴 Fit Barça"
 
-    if regates and ritmo and pases:
-        if regates >= 80 and ritmo >= 80:
-            role = "Winger / Inside Forward"
-        elif pases >= 80 and regates >= 75:
-            role = "Interior / Mezzala"
-        elif pases >= 82:
-            role = "Deep Playmaker"
-        elif tiros >= 75:
-            role = "Attacking Mid / Shadow Striker"
+    analiza.append(f"Barça fit: {tiki}")
 
-    analiza.append(f"🎯 Rol optim: {role}")
-
-    # =====================================================
-    # BARÇA TIKI-TAKA FIT
-    # =====================================================
-
-    tiki = 0
-
-    if pases:
-        tiki += (pases - 60) * 0.2
-    if regates:
-        tiki += (regates - 60) * 0.15
-    if edad and edad <= 21:
-        tiki += 2
-
-    if tiki >= 10:
-        tiki_verdict = "🔵🔴 Perfect Barça profile"
-    elif tiki >= 7:
-        tiki_verdict = "🟡 Dezvoltabil pentru Barça"
-    else:
-        tiki_verdict = "❌ Nu e profil tiki-taka"
-
-    analiza.append(f"🔵🔴 Barça fit: {tiki_verdict}")
-
-    # =====================================================
-    # STARTER / LOAN / ROTATION
-    # =====================================================
-
-    squad_role = ""
-
-    if media >= 80:
-        squad_role = "Starter imediat"
-    elif media >= 75:
-        squad_role = "Rotation player"
-    else:
-        squad_role = "Loan / Bench"
-
-    analiza.append(f"👕 Squad role: {squad_role}")
-
-    # =====================================================
-    # DEVELOPMENT PLAN
-    # =====================================================
-
-    dev = ""
-
-    if role == "Winger / Inside Forward":
-        dev = "Winger → Pace + Dribbling"
-    elif role == "Interior / Mezzala":
-        dev = "Playmaker → Passing + Vision"
-    else:
-        dev = "Balanced Development"
-
-    analiza.append(f"🛠 Development: {dev}")
-
-    # =====================================================
-    # FINAL VERDICT
-    # =====================================================
-
-    score = 0
-
-    if potential_max >= 85:
-        score += 3
-    if edad <= 20:
-        score += 2
-    if regates >= 75:
-        score += 1
-    if pases >= 75:
-        score += 1
-
-    if score >= 6:
-        final = "🔥 BUY NOW"
-    elif score >= 4:
-        final = "🟡 BUY IF CHEAP"
-    else:
-        final = "❌ SKIP"
-
-    # =====================================================
-    # AFIȘARE
-    # =====================================================
-
-    st.subheader("🧠 AI Scout Report")
+    st.subheader("🧠 Scout Report")
 
     for a in analiza:
         st.write(a)
-
-    st.subheader("Verdict Final")
-    st.success(final)
