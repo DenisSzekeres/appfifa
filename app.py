@@ -21,28 +21,32 @@ if img_file:
     st.image(img_file, caption="Scan", use_column_width=True)
 
     # =================================================
-    # OCR CLOUD API
-    # =================================================
+# OCR CLOUD API SAFE
+# =================================================
 
-    url = "https://api.ocr.space/parse/image"
+url = "https://api.ocr.space/parse/image"
 
-    payload = {
-        "apikey": "helloworld",  # free demo key
-        "language": "spa",
-        "isOverlayRequired": False
-    }
+payload = {
+    "apikey": "helloworld",
+    "language": "spa",
+    "isOverlayRequired": False
+}
 
-    files = {
-        "file": img_file.getvalue()
-    }
+files = {
+    "file": img_file.getvalue()
+}
 
-    response = requests.post(url, data=payload, files=files)
-    result = response.json()
+response = requests.post(url, data=payload, files=files)
 
+result = response.json()
+
+# ---- SAFE PARSE ----
+if "ParsedResults" in result and result["ParsedResults"]:
     text = result["ParsedResults"][0]["ParsedText"]
+else:
+    st.error("❌ OCR nu a detectat text. Încearcă o poză mai clară.")
+    st.stop()
 
-    st.subheader("📄 Text detectat")
-    st.text(text)
 
     # =================================================
     # EXTRAGERE STATS
