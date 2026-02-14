@@ -1,45 +1,52 @@
 import streamlit as st
-import easyocr
-import cv2
-import numpy as np
-from PIL import Image
+import requests
 import re
+from PIL import Image
 
 st.set_page_config(page_title="AI Football Scout", page_icon="⚽")
 
 st.title("⚽ AI Football Scout")
-st.write("Scanează fișa jucătorului.")
+st.write("Scanează fișa jucătorului cu camera.")
 
 # =====================================================
 # CAMERA / UPLOAD
 # =====================================================
 
 img_file = st.camera_input("Fă poză") or st.file_uploader(
-    "Upload", type=["jpg","png","jpeg"]
+    "Upload imagine", type=["jpg","png","jpeg"]
 )
 
 if img_file:
 
-    image = Image.open(img_file)
-    img = np.array(image)
-
-    st.image(image, caption="Scan", use_column_width=True)
+    st.image(img_file, caption="Scan", use_column_width=True)
 
     # =================================================
-    # OCR EASYOCR
+    # OCR CLOUD API
     # =================================================
 
-    reader = easyocr.Reader(['en','es'])
+    url = "https://api.ocr.space/parse/image"
 
-    results = reader.readtext(img, detail=0)
-    text = " ".join(results)
+    payload = {
+        "apikey": "helloworld",  # free demo key
+        "language": "spa",
+        "isOverlayRequired": False
+    }
+
+    files = {
+        "file": img_file.getvalue()
+    }
+
+    response = requests.post(url, data=payload, files=files)
+    result = response.json()
+
+    text = result["ParsedResults"][0]["ParsedText"]
 
     st.subheader("📄 Text detectat")
     st.text(text)
 
     # =================================================
-    # EXTRAGERE
-    # =================================================
+    # EXTRAGERE STATS
+    # =====================================================
 
     def extrage(pattern):
         match = re.search(pattern, text)
@@ -71,12 +78,12 @@ if img_file:
         "Fisico": fisico
     }
 
-    st.subheader("📊 Stats")
+    st.subheader("📊 Stats extrase")
     st.json(stats)
 
-    # =================================================
-    # AI SCOUT
-    # =================================================
+    # =====================================================
+    # AI SCOUT LOGIC
+    # =====================================================
 
     analiza = []
 
@@ -88,8 +95,7 @@ if img_file:
         analiza.append("❌ Ceiling mic")
 
     if media and potential_max:
-        growth = potential_max - media
-        analiza.append(f"📈 Growth potential: +{growth}")
+        analiza.append(f"📈 Growth: +{potential_max - media}")
 
     role = "Rotation"
 
@@ -98,11 +104,12 @@ if img_file:
     elif pases and pases >= 78:
         role = "Playmaker"
 
-    analiza.append(f"🎯 Rol: {role}")
+    analiza.append(f"🎯 Rol optim: {role}")
 
     tiki = "❌"
+
     if pases and regates and (pases + regates)/2 >= 75:
-        tiki = "🔵🔴 Fit Barça"
+        tiki = "🔵🔴 Fit Barça Tiki-Taka"
 
     analiza.append(f"Barça fit: {tiki}")
 
@@ -110,3 +117,4 @@ if img_file:
 
     for a in analiza:
         st.write(a)
+
